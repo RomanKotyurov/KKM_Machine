@@ -1,0 +1,4 @@
+__pycache__/
+build/
+dist/
+libfptr10.py
