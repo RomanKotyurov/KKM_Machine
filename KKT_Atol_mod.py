@@ -1,15 +1,16 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request #, jsonify
 from libfptr10 import IFptr
-from threading import Thread
+#from threading import Thread
 #from pybase64 import b64decode
 #import os
 #from dotenv import load_dotenv
 #import time
-#import datetime
+import datetime
 #import telebot
 
 app = Flask(__name__)
 
+# version 23.12.21.1
 #KASSA_IP ='192.0.0.154'
 #KASSA_IP = os.getenv('KASSA_IP')
 
