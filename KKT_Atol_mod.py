@@ -10,7 +10,7 @@ import datetime
 
 app = Flask(__name__)
 
-# version 23.12.21.1
+# version 23.12.21.2
 #KASSA_IP ='192.0.0.154'
 #KASSA_IP = os.getenv('KASSA_IP')
 
