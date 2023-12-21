@@ -2,3 +2,4 @@ __pycache__/
 build/
 dist/
 libfptr10.py
+KKT_Atol_mod.spec

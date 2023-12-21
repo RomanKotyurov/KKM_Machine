@@ -1,0 +1,1 @@
+pyinstaller --onefile KKT_Atol_mod.py
