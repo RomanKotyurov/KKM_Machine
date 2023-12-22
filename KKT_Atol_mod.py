@@ -10,7 +10,7 @@ import datetime
 
 app = Flask(__name__)
 
-# version 23.12.21.22
+# version 23.12.22.1
 #KASSA_IP ='192.0.0.154'
 #KASSA_IP = os.getenv('KASSA_IP')
 
@@ -181,14 +181,14 @@ def loadCheck():
 
         #fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL) # ПОТОМ УБРАТЬ!
 
-        fptr.setParam(1178, datetime.datetime(int(check_data[:4]), int(check_data[5:7]), int(check_data[8:10])))  # 
-        fptr.setParam(1179, num_predpisania)
-        fptr.utilFormTlv()
-        correctionInfo = fptr.getParamByteArray(IFptr.LIBFPTR_PARAM_TAG_VALUE)
+        #fptr.setParam(1178, datetime.datetime(int(check_data[:4]), int(check_data[5:7]), int(check_data[8:10])))  # нужны, если по предписанию ФНС
+        #fptr.setParam(1179, num_predpisania) # нужны, если по предписанию ФНС
+        #fptr.utilFormTlv() # нужны, если по предписанию ФНС
+        #correctionInfo = fptr.getParamByteArray(IFptr.LIBFPTR_PARAM_TAG_VALUE)  # нужны, если по предписанию ФНС
         sign_calc = sign_calc
         fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL_CORRECTION)   # КОРРЕКЦИЯ ПРИХОДА (зависит от sign_calc)
-        fptr.setParam(1173, 1)  # тип коррекции (самостоятельно или по предписанию), связан с параметром "1179"
-        fptr.setParam(1174, correctionInfo) # составное реквизит, состоит из "1178" и "1179" 
+        fptr.setParam(1173, 0)  # тип коррекции (самостоятельно или по предписанию), связан с параметром "1179"
+        fptr.setParam(1174, correctionInfo) # составной реквизит, состоит из "1178" и "1179" 
         fptr.setParam(1008, clientInfo) # данные клиента
         fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_ELECTRONICALLY, True) # чек не печатаем
         fptr.openReceipt()
