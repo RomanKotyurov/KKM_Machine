@@ -137,15 +137,17 @@ def jsonItemsDisassembly(item):
             fptr.report()
     return isOpened, fptr
 
-def productRegistration(item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, item_VAT_rate, item_VAT_sum, fptr):  
+def productRegistration(item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, item_VAT_rate, item_VAT_sum, item_mera, sign_way_calc, fptr):  
     fptr.setParam(IFptr.LIBFPTR_PARAM_COMMODITY_NAME, item_name)
     fptr.setParam(IFptr.LIBFPTR_PARAM_PRICE, item_price)
     fptr.setParam(IFptr.LIBFPTR_PARAM_QUANTITY, item_quantity)
-    fptr.setParam(IFptr.LIBFPTR_PARAM_MEASUREMENT_UNIT, IFptr.LIBFPTR_IU_PIECE) # единица измеренения - штука
-    fptr.setParam(IFptr.LIBFPTR_PARAM_TAX_TYPE, IFptr.LIBFPTR_TAX_NO)  # НДС не облагается
-    fptr.setParam(1214, 4)  # признак способа расчета - полный расчет (4) (зависит от <sign_way_calc>)
-    #codPriznakaPredmetaRascheta = priznakPredmetaRascheta(item_sign_sub_calc)
-    fptr.setParam(1212, item_sign_sub_calc) # предмет расчета
+    fptr.setParam(IFptr.LIBFPTR_PARAM_MEASUREMENT_UNIT, IFptr.LIBFPTR_IU_PIECE) # единица измеренения - штука (ПОКА - ВСЕГДА, далее item_mera)
+    fptr.setParam(IFptr.LIBFPTR_PARAM_TAX_TYPE, IFptr.LIBFPTR_TAX_NO)  # НДС не облагается (ПОКА - ВСЕГДА)
+
+    fptr.setParam(1214, sign_way_calc)  # признак способа расчета: полный расчет (4), аванс (3)
+
+    fptr.setParam(1212, item_sign_sub_calc) # предмет расчета: товар (1), услуга (4), платеж (7)
+
     fptr.registration()
     return
 
@@ -185,25 +187,39 @@ def loadCheck():
 
         #fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL) # ПОТОМ УБРАТЬ!
         #fptr.setParam(1062, sno)    # применяемая система налогообложения      # ОШИБКА ПРИ ИСПОЛЬЗОВАНИИ !!!
+        #fptr.setParam(1192, doc_osn)
         fptr.setParam(1178, datetime.datetime(int(check_data[:4]), int(check_data[5:7]), int(check_data[8:10])))  # нужны, если по предписанию ФНС
         fptr.setParam(1179, num_predpisania) # нужны, если по предписанию ФНС
         fptr.utilFormTlv() # нужны, если по предписанию ФНС
         correctionInfo = fptr.getParamByteArray(IFptr.LIBFPTR_PARAM_TAG_VALUE)  # нужны, если по предписанию ФНС
-        sign_calc = sign_calc
-        fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL_CORRECTION)   # КОРРЕКЦИЯ ПРИХОДА (зависит от sign_calc)
-        fptr.setParam(1173, 0)  # тип коррекции (самостоятельно или по предписанию), связан с параметром "1179"
+
+        if sign_calc == 1:
+            fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL_CORRECTION)   # КОРРЕКЦИЯ ПРИХОДА
+        if sign_calc == 2:
+            fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL_RETURN_CORRECTION)   # КОРРЕКЦИЯ ВОЗВРАТА ПРИХОДА
+             
+        fptr.setParam(1173, 0)  # тип коррекции - самостоятельно (по предписанию - 1)
         fptr.setParam(1174, correctionInfo) # составной реквизит, состоит из "1178" и "1179" 
-        fptr.setParam(1008, clientInfo) # данные клиента
+        fptr.setParam(1008, clientInfo) # данные клиента (приходит пустая строка)
         fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_ELECTRONICALLY, True) # чек не печатаем
         fptr.openReceipt()
 
         i = 0
         while i < itemsQuantity:
             item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, item_VAT_rate, item_VAT_sum, item_mera = jsonItemsDisassembly(content['items'][i]) 
-            productRegistration(item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, item_VAT_rate, item_VAT_sum, fptr) # регистрация каждого товара в чеке  
+            productRegistration(item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, item_VAT_rate, item_VAT_sum, item_mera, sign_way_calc, fptr) # регистрация каждого товара в чеке  
             i += 1
-
-        fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_ELECTRONICALLY) # LIBFPTR_PT_ELECTRONICALLY - безналичная оплата
+        
+        fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_OTHER) # иная форма оплаты (по умолчанию, если не иное)
+        if check_cash > 0:
+            fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_CASH) # наличная оплата
+        if check_electron > 0:
+            fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_ELECTRONICALLY) # безналичная оплата
+        if check_prepay > 0:
+           fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_PREPAID) # аванс
+        if check_postpay > 0:
+           fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_PREPAID) # кредит
+        
         fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_SUM, check_sum)
         fptr.payment()
         fptr.closeReceipt()     # закрытие чека
