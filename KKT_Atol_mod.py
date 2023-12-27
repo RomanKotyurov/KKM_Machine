@@ -10,7 +10,8 @@ import datetime
 
 app = Flask(__name__)
 
-version 23.12.27.1
+# version 23.12.27.1
+# ------------------
 #KASSA_IP ='192.0.0.154'
 #KASSA_IP = os.getenv('KASSA_IP')
 
@@ -107,8 +108,10 @@ def jsonDisassembly(content):
     inn_supplier = content['inn_supplier']
     name_supplier = content['name_supplier']
     itemsQuantity = len(content['items'])
+    doc_osn = content['doc_osn']
+    sno = content['sno']
     return uuid, operator, num_predpisania, clientInfo, fp, rnm, fn, adress,fd_number, fd_type, sign_calc, check_data, shift_number, check_sum, check_cash, check_electron, check_prepay, check_prepay_offset, \
-    check_postpay, barter_pay, sum_NO_VAT, sum_0_VAT, sum_10_VAT, sum_20_VAT, sum_110_VAT, sum_118_VAT, sum_120_VAT, sign_way_calc, sign_agent, inn_supplier, name_supplier, itemsQuantity
+    check_postpay, barter_pay, sum_NO_VAT, sum_0_VAT, sum_10_VAT, sum_20_VAT, sum_110_VAT, sum_118_VAT, sum_120_VAT, sign_way_calc, sign_agent, inn_supplier, name_supplier, itemsQuantity, doc_osn, sno
 
 def jsonItemsDisassembly(item):
     item_number = item['item_number']
@@ -119,7 +122,8 @@ def jsonItemsDisassembly(item):
     item_sum = item['item_sum']
     item_VAT_rate = item['item_VAT_rate']
     item_VAT_sum = item['item_VAT_sum']
-    return item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, item_VAT_rate, item_VAT_sum
+    item_mera = item['item_mera']
+    return item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, item_VAT_rate, item_VAT_sum, item_mera
 
 
 
@@ -167,11 +171,11 @@ def root():
 def loadCheck():
     # Старт обработки тела чека
     content = request.json
-    #botMessage = str(content)
+    botMessage = str(content)
     #botMessage = "--> получен чек коррекции"
     #bot.send_message(user_id, botMessage)
     uuid, operator, num_predpisania, clientInfo, fp, rnm, fn, adress, fd_number, fd_type, sign_calc, check_data, shift_number, check_sum, check_cash, check_electron, check_prepay, check_prepay_offset, \
-    check_postpay, barter_pay, sum_NO_VAT, sum_0_VAT, sum_10_VAT, sum_20_VAT, sum_110_VAT, sum_118_VAT, sum_120_VAT, sign_way_calc, sign_agent, inn_supplier, name_supplier, itemsQuantity = jsonDisassembly(content)
+    check_postpay, barter_pay, sum_NO_VAT, sum_0_VAT, sum_10_VAT, sum_20_VAT, sum_110_VAT, sum_118_VAT, sum_120_VAT, sign_way_calc, sign_agent, inn_supplier, name_supplier, itemsQuantity, doc_osn, sno = jsonDisassembly(content)
     
     connectStatus, fptr = initializationKKT()   # инициализация и подключение ККТ  
     if connectStatus == 1:      # ККТ готова
@@ -180,11 +184,11 @@ def loadCheck():
         fptr.operatorLogin()
 
         #fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL) # ПОТОМ УБРАТЬ!
-
-        #fptr.setParam(1178, datetime.datetime(int(check_data[:4]), int(check_data[5:7]), int(check_data[8:10])))  # нужны, если по предписанию ФНС
-        #fptr.setParam(1179, num_predpisania) # нужны, если по предписанию ФНС
-        #fptr.utilFormTlv() # нужны, если по предписанию ФНС
-        #correctionInfo = fptr.getParamByteArray(IFptr.LIBFPTR_PARAM_TAG_VALUE)  # нужны, если по предписанию ФНС
+        #fptr.setParam(1062, sno)    # применяемая система налогообложения      # ОШИБКА ПРИ ИСПОЛЬЗОВАНИИ !!!
+        fptr.setParam(1178, datetime.datetime(int(check_data[:4]), int(check_data[5:7]), int(check_data[8:10])))  # нужны, если по предписанию ФНС
+        fptr.setParam(1179, num_predpisania) # нужны, если по предписанию ФНС
+        fptr.utilFormTlv() # нужны, если по предписанию ФНС
+        correctionInfo = fptr.getParamByteArray(IFptr.LIBFPTR_PARAM_TAG_VALUE)  # нужны, если по предписанию ФНС
         sign_calc = sign_calc
         fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL_CORRECTION)   # КОРРЕКЦИЯ ПРИХОДА (зависит от sign_calc)
         fptr.setParam(1173, 0)  # тип коррекции (самостоятельно или по предписанию), связан с параметром "1179"
@@ -195,7 +199,7 @@ def loadCheck():
 
         i = 0
         while i < itemsQuantity:
-            item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, item_VAT_rate, item_VAT_sum = jsonItemsDisassembly(content['items'][i]) 
+            item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, item_VAT_rate, item_VAT_sum, item_mera = jsonItemsDisassembly(content['items'][i]) 
             productRegistration(item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, item_VAT_rate, item_VAT_sum, fptr) # регистрация каждого товара в чеке  
             i += 1
 
