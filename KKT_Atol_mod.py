@@ -10,7 +10,7 @@ import datetime
 
 app = Flask(__name__)
 
-# version 23.12.27.1
+# version 23.12.28.1
 # ------------------
 #KASSA_IP ='192.0.0.154'
 #KASSA_IP = os.getenv('KASSA_IP')
@@ -187,10 +187,11 @@ def loadCheck():
 
         #fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL) # ПОТОМ УБРАТЬ!
         #fptr.setParam(1062, sno)    # применяемая система налогообложения      # ОШИБКА ПРИ ИСПОЛЬЗОВАНИИ !!!
-        #fptr.setParam(1192, doc_osn)
+        #fptr.setParam(1192, str(doc_osn))
         fptr.setParam(1178, datetime.datetime(int(check_data[:4]), int(check_data[5:7]), int(check_data[8:10])))  # нужны, если по предписанию ФНС
         fptr.setParam(1179, num_predpisania) # нужны, если по предписанию ФНС
         fptr.utilFormTlv() # нужны, если по предписанию ФНС
+        #fptr.setParam(1192, str(doc_osn))
         correctionInfo = fptr.getParamByteArray(IFptr.LIBFPTR_PARAM_TAG_VALUE)  # нужны, если по предписанию ФНС
 
         if sign_calc == 1:
@@ -199,7 +200,8 @@ def loadCheck():
             fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL_RETURN_CORRECTION)   # КОРРЕКЦИЯ ВОЗВРАТА ПРИХОДА
              
         fptr.setParam(1173, 0)  # тип коррекции - самостоятельно (по предписанию - 1)
-        fptr.setParam(1174, correctionInfo) # составной реквизит, состоит из "1178" и "1179" 
+        fptr.setParam(1174, correctionInfo) # составной реквизит, состоит из "1178" и "1179"
+        fptr.setParam(1192, str(doc_osn))
         fptr.setParam(1008, clientInfo) # данные клиента (приходит пустая строка)
         fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_ELECTRONICALLY, True) # чек не печатаем
         fptr.openReceipt()
@@ -218,8 +220,10 @@ def loadCheck():
         if check_prepay > 0:
            fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_PREPAID) # аванс
         if check_postpay > 0:
-           fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_PREPAID) # кредит
-        
+           fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_CREDIT) # кредит
+        if check_prepay_offset > 0:
+            fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_PREPAID) # зачет предоплаты (аванса)
+
         fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_SUM, check_sum)
         fptr.payment()
         fptr.closeReceipt()     # закрытие чека
