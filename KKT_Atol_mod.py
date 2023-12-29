@@ -10,7 +10,7 @@ import datetime
 
 app = Flask(__name__)
 
-# version 23.12.29.1
+# version 23.12.29.2
 # ------------------
 #KASSA_IP ='192.0.0.154'
 #KASSA_IP = os.getenv('KASSA_IP')
@@ -211,23 +211,30 @@ def loadCheck():
             item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, item_VAT_rate, item_VAT_sum, item_mera = jsonItemsDisassembly(content['items'][i]) 
             productRegistration(item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, item_VAT_rate, item_VAT_sum, item_mera, sign_way_calc, fptr) # регистрация каждого товара в чеке  
             i += 1
-        
-        fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_OTHER) # иная форма оплаты (по умолчанию, если не иное)
+
         if check_cash > 0:
             fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_CASH) # наличная оплата
+            fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_SUM, check_cash)
+            fptr.payment()
         if check_electron > 0:
             fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_ELECTRONICALLY) # безналичная оплата
+            fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_SUM, check_electron)
+            fptr.payment()
+
         # if check_prepay > 0:
         #    fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_PREPAID) # аванс
-        if check_postpay > 0:
-           fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_CREDIT) # кредит
+            
+        if check_postpay > 0:   
+            fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_CREDIT) # кредит
+            fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_SUM, check_postpay)
+            fptr.payment()
+
         if check_prepay_offset > 0:
             fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_PREPAID) # зачет предоплаты (аванса)
+            fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_SUM, check_prepay_offset)
+            fptr.payment()
 
-        fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_SUM, check_sum)
-        fptr.payment()
         fptr.closeReceipt()     # закрытие чека
-
         CheckClosed = checkReceiptClosed(fptr)    # обработка результата операции
         status = 0
         if CheckClosed:
