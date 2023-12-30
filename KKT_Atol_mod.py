@@ -10,7 +10,7 @@ import datetime
 
 app = Flask(__name__)
 
-# version 23.12.29.2
+# version 23.12.30.1
 # ------------------
 #KASSA_IP ='192.0.0.154'
 #KASSA_IP = os.getenv('KASSA_IP')
@@ -144,10 +144,11 @@ def productRegistration(item_number, item_name, item_sign_sub_calc, item_price, 
     fptr.setParam(IFptr.LIBFPTR_PARAM_MEASUREMENT_UNIT, IFptr.LIBFPTR_IU_PIECE) # единица измеренения - штука (ПОКА - ВСЕГДА, далее item_mera)
     fptr.setParam(IFptr.LIBFPTR_PARAM_TAX_TYPE, IFptr.LIBFPTR_TAX_NO)  # НДС не облагается (ПОКА - ВСЕГДА)
 
+    if (item_number != 1) and (item_sign_sub_calc == 10):
+        sign_way_calc = 3
+
     fptr.setParam(1214, sign_way_calc)  # признак способа расчета: полный расчет (4), аванс (3)
-
     fptr.setParam(1212, item_sign_sub_calc) # предмет расчета: товар (1), услуга (4), платеж (7)
-
     fptr.registration()
     return
 
