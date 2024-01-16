@@ -10,7 +10,7 @@ import datetime
 
 app = Flask(__name__)
 
-# version 23.12.31.1
+# version 24.01.16.1
 # ------------------
 #KASSA_IP ='192.0.0.154'
 #KASSA_IP = os.getenv('KASSA_IP')
@@ -312,6 +312,31 @@ def testOFD():
 
     return 'OK'
 
+@app.route("/get_INN")
+def get_INN():
+    # Инициализация драйвера
+    fptr = IFptr("")
+    version = fptr.version()
+    print('version')
+    print(version)
+    # Подключение ККТ
+    settings = {
+        IFptr.LIBFPTR_SETTING_MODEL: IFptr.LIBFPTR_MODEL_ATOL_AUTO,
+        IFptr.LIBFPTR_SETTING_PORT: IFptr.LIBFPTR_PORT_TCPIP,
+        IFptr.LIBFPTR_SETTING_IPADDRESS: "192.0.0.153",
+        IFptr.LIBFPTR_SETTING_IPPORT: 5555
+    }
+    fptr.setSettings(settings)
+    fptr.open()
+    isOpened = fptr.isOpened()
+    print('isOpened')
+    print(isOpened)
+    fptr.setParam(IFptr.LIBFPTR_PARAM_FN_DATA_TYPE, IFptr.LIBFPTR_FNDT_REG_INFO)
+    fptr.fnQueryData()
+    INN = fptr.getParamString(1018)
+    print('ИНН ', INN)
+    return INN
+
     # Подключение ККТ
     settings = {
         IFptr.LIBFPTR_SETTING_MODEL: IFptr.LIBFPTR_MODEL_ATOL_AUTO,
@@ -342,5 +367,7 @@ def testOFD():
     #fptr.deviceReboot()
 
     return 'Cмена закрыта'
+
+    
 
 app.run("0.0.0.0", 5034)
