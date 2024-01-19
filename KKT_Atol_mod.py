@@ -10,13 +10,13 @@ import datetime
 
 app = Flask(__name__)
 
-# version 24.01.16.1
+# version 24.01.19.1
 # ------------------
 #KASSA_IP ='192.0.0.154'
 #KASSA_IP = os.getenv('KASSA_IP')
 
 
-def initializationKKT():
+def initializationKKT(ip_kassy, inn_company):
         # инициализация драйвера
         fptr = IFptr("")
         #version = fptr.version()
@@ -26,14 +26,17 @@ def initializationKKT():
         settings = {
             IFptr.LIBFPTR_SETTING_MODEL: IFptr.LIBFPTR_MODEL_ATOL_AUTO,
             IFptr.LIBFPTR_SETTING_PORT: IFptr.LIBFPTR_PORT_TCPIP,
-            IFptr.LIBFPTR_SETTING_IPADDRESS: "192.0.0.154", # 153, 154
+            IFptr.LIBFPTR_SETTING_IPADDRESS: ip_kassy, # 153, 154
             IFptr.LIBFPTR_SETTING_IPPORT: 5555
         }
         fptr.setSettings(settings)
         fptr.open()
         isOpened = fptr.isOpened()
-        print('Статус готовности к обмену с ККТ: '+ str(isOpened))
-      
+        fptr.setParam(IFptr.LIBFPTR_PARAM_FN_DATA_TYPE, IFptr.LIBFPTR_FNDT_REG_INFO)
+        fptr.fnQueryData()
+        if inn_company != fptr.getParamString(1018).strip():
+            isOpened = 9 # ИНН ККТ не соответсвует ИНН Организации (код ошибки - 9)
+        print('Статус готовности к обмену с ККТ: '+ str(isOpened))    
         return isOpened, fptr
     
 def checkReceiptClosed():
@@ -76,16 +79,17 @@ def checkOfMarring(markingCodeBase64):
     
 def jsonDisassembly(content):
     # разбор контейнера json
-    uuid = content['uuid']
+    ip_kassy = content['ip_kassy']
+    inn_company = content['inn_сompany']
     operator = content['operator']
     num_predpisania = content['num_predpisania']
     clientInfo = content['clientInfo']
-    fp = content['fp']
     rnm = content['rnm']
     fn = content['fn']
     adress = content['adress']
     fd_number = content['fd_number']
     fd_type = content['fd_type']
+    corr_type = content['corr_type']
     sign_calc = content['sign_calc']
     check_data = content['check_data']
     shift_number = content['shift_number']
@@ -99,19 +103,18 @@ def jsonDisassembly(content):
     sum_NO_VAT = content['sum_NO_VAT']
     sum_0_VAT = content['sum_0_VAT']
     sum_10_VAT = content['sum_10_VAT']
+    sum_18_VAT = content['sum_18_VAT']
     sum_20_VAT = content['sum_20_VAT']
     sum_110_VAT = content['sum_110_VAT']
-    sum_118_VAT = content['sum_118_VAT']
     sum_120_VAT = content['sum_120_VAT']
-    sign_way_calc = content['sign_way_calc']
-    sign_agent = content['sign_agent']
-    inn_supplier = content['inn_supplier']
-    name_supplier = content['name_supplier']
-    itemsQuantity = len(content['items'])
     doc_osn = content['doc_osn']
     sno = content['sno']
-    return uuid, operator, num_predpisania, clientInfo, fp, rnm, fn, adress,fd_number, fd_type, sign_calc, check_data, shift_number, check_sum, check_cash, check_electron, check_prepay, check_prepay_offset, \
-    check_postpay, barter_pay, sum_NO_VAT, sum_0_VAT, sum_10_VAT, sum_20_VAT, sum_110_VAT, sum_118_VAT, sum_120_VAT, sign_way_calc, sign_agent, inn_supplier, name_supplier, itemsQuantity, doc_osn, sno
+    inn_operator = content['inn_operator']
+    check_print = content['check_print']
+    itemsQuantity = len(content['items'])
+    
+    return ip_kassy, inn_company, operator, num_predpisania, clientInfo, rnm, fn, adress,fd_number, fd_type, corr_type, sign_calc, check_data, shift_number, check_sum, check_cash, check_electron, check_prepay, check_prepay_offset, \
+    check_postpay, barter_pay, sum_NO_VAT, sum_0_VAT, sum_10_VAT, sum_18_VAT, sum_20_VAT, sum_110_VAT, sum_120_VAT, doc_osn, sno, inn_operator, check_print, itemsQuantity
 
 def jsonItemsDisassembly(item):
     item_number = item['item_number']
@@ -120,24 +123,31 @@ def jsonItemsDisassembly(item):
     item_price = item['item_price']
     item_quantity = item['item_quantity']
     item_sum = item['item_sum']
-    item_VAT_rate = item['item_VAT_rate']
-    item_VAT_sum = item['item_VAT_sum']
+    sign_way_calc = item['sign_way_calc']
     item_mera = item['item_mera']
-    return item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, item_VAT_rate, item_VAT_sum, item_mera
+    t1200_VAT_no = item['t1200_VAT_no']
+    t1200_VAT_0 = item['t1200_VAT_0']
+    t1200_VAT_10 = item['t1200_VAT_10']
+    t1200_VAT_18 = item['t1200_VAT_18']
+    t1200_VAT_20 = item['t1200_VAT_20']
+    t1200_VAT_110 = item['t1200_VAT_110']
+    t1200_VAT_120 = item['t1200_VAT_120']
+    sign_agent = item['sign_agent']
+    tel_OP = item['tel_OP']
+    transaction_BPA = item['transaction_BPA']
+    tel_PA = item['tel_PA']
+    tel_OPP = item['tel_OPP']
+    name_OP = item['name_OP']
+    adress_OP = item['adress_OP']
+    inn_OP = item['inn_OP']
+    data_supplier = item['data_supplier']
+    inn_supplier = item['inn_supplier']
+    dop_rekvizit = item['dop_rekvizit']
+    return item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, sign_way_calc, item_mera, t1200_VAT_no, t1200_VAT_0, t1200_VAT_10, t1200_VAT_18, t1200_VAT_20, \
+    t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit
 
-
-
-    if isOpened == 1:
-        fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_SHIFT_STATE)
-        fptr.queryData()
-        state = fptr.getParamInt(IFptr.LIBFPTR_PARAM_SHIFT_STATE)
-        if (state == 2):
-            fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_ELECTRONICALLY, True)
-            fptr.setParam(IFptr.LIBFPTR_PARAM_REPORT_TYPE, IFptr.LIBFPTR_RT_CLOSE_SHIFT)
-            fptr.report()
-    return isOpened, fptr
-
-def productRegistration(item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, item_VAT_rate, item_VAT_sum, item_mera, sign_way_calc, fptr):  
+def productRegistration(item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, sign_way_calc, item_mera, t1200_VAT_no, t1200_VAT_0, t1200_VAT_10, t1200_VAT_18, \
+    t1200_VAT_20, t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit, fptr):  
     fptr.setParam(IFptr.LIBFPTR_PARAM_COMMODITY_NAME, item_name)
     fptr.setParam(IFptr.LIBFPTR_PARAM_PRICE, item_price)
     fptr.setParam(IFptr.LIBFPTR_PARAM_QUANTITY, item_quantity)
@@ -153,17 +163,23 @@ def productRegistration(item_number, item_name, item_sign_sub_calc, item_price, 
     return
 
 def checkReceiptClosed(fptr):
+    fiscalSign = ""
+    dateTime = ""
     while fptr.checkDocumentClosed() < 0:   # не удалось проверить закрытие чека
         print(fptr.errorDescription())
         continue
-    CheckClosed = True
-    if not fptr.getParamBool(IFptr.LIBFPTR_PARAM_DOCUMENT_CLOSED):  # чек не закрылся,- отменяем его
+    if fptr.getParamBool(IFptr.LIBFPTR_PARAM_DOCUMENT_CLOSED):
+        CheckClosed = True
+        fptr.setParam(IFptr.LIBFPTR_PARAM_FN_DATA_TYPE, IFptr.LIBFPTR_FNDT_LAST_DOCUMENT)
+        fptr.fnQueryData()
+        fiscalSign          = fptr.getParamString(IFptr.LIBFPTR_PARAM_FISCAL_SIGN)
+        dateTime            = fptr.getParamDateTime(IFptr.LIBFPTR_PARAM_DATE_TIME)
+        print("Фискальные данные чека: ", fiscalSign, " ", dateTime)
+    elif not fptr.getParamBool(IFptr.LIBFPTR_PARAM_DOCUMENT_CLOSED):  # чек не закрылся,- отменяем его
         fptr.cancelReceipt()
         CheckClosed = False
-        botMessage = "! Неудачная обработка чека"
-        #bot.send_message(GROUP_ID, botMessage)
     print("Результат закрытия чека: " + fptr.errorDescription())       
-    return CheckClosed
+    return CheckClosed, fiscalSign, dateTime
 
 @app.route("/")
 def root():
@@ -177,10 +193,10 @@ def loadCheck():
     botMessage = str(content)
     #botMessage = "--> получен чек коррекции"
     #bot.send_message(user_id, botMessage)
-    uuid, operator, num_predpisania, clientInfo, fp, rnm, fn, adress, fd_number, fd_type, sign_calc, check_data, shift_number, check_sum, check_cash, check_electron, check_prepay, check_prepay_offset, \
-    check_postpay, barter_pay, sum_NO_VAT, sum_0_VAT, sum_10_VAT, sum_20_VAT, sum_110_VAT, sum_118_VAT, sum_120_VAT, sign_way_calc, sign_agent, inn_supplier, name_supplier, itemsQuantity, doc_osn, sno = jsonDisassembly(content)
+    ip_kassy, inn_company, operator, num_predpisania, clientInfo, rnm, fn, adress, fd_number, fd_type, corr_type, sign_calc, check_data, shift_number, check_sum, check_cash, check_electron, check_prepay, \
+    check_prepay_offset, check_postpay, barter_pay, sum_NO_VAT, sum_0_VAT, sum_10_VAT, sum_18_VAT, sum_20_VAT, sum_110_VAT, sum_120_VAT, doc_osn, sno, inn_operator, check_print, itemsQuantity = jsonDisassembly(content)
     
-    connectStatus, fptr = initializationKKT()   # инициализация и подключение ККТ  
+    connectStatus, fptr = initializationKKT(ip_kassy, inn_company)   # инициализация и подключение ККТ  
     if connectStatus == 1:      # ККТ готова
 
         fptr.setParam(1021, operator) # кассир
@@ -189,7 +205,7 @@ def loadCheck():
         #fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL) # ПОТОМ УБРАТЬ!
         #fptr.setParam(1062, sno)    # применяемая система налогообложения      # ОШИБКА ПРИ ИСПОЛЬЗОВАНИИ !!!
         #fptr.setParam(1192, str(doc_osn))
-        fptr.setParam(1178, datetime.datetime(int(check_data[:4]), int(check_data[5:7]), int(check_data[8:10])))  # нужны, если по предписанию ФНС
+        fptr.setParam(1178, datetime.datetime(int(check_data[6:10]), int(check_data[3:5]), int(check_data[:2])))  # нужны, если по предписанию ФНС
         fptr.setParam(1179, num_predpisania) # нужны, если по предписанию ФНС
         fptr.utilFormTlv() # нужны, если по предписанию ФНС
         #fptr.setParam(1192, str(doc_osn))
@@ -204,13 +220,16 @@ def loadCheck():
         fptr.setParam(1174, correctionInfo) # составной реквизит, состоит из "1178" и "1179"
         fptr.setParam(1192, str(doc_osn))
         fptr.setParam(1008, clientInfo) # данные клиента (приходит пустая строка)
-        fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_ELECTRONICALLY, True) # чек не печатаем
+        if not check_print:
+            fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_ELECTRONICALLY, True) # чек не печатаем
         fptr.openReceipt()
 
         i = 0
         while i < itemsQuantity:
-            item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, item_VAT_rate, item_VAT_sum, item_mera = jsonItemsDisassembly(content['items'][i]) 
-            productRegistration(item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, item_VAT_rate, item_VAT_sum, item_mera, sign_way_calc, fptr) # регистрация каждого товара в чеке  
+            item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, sign_way_calc, item_mera, t1200_VAT_no, t1200_VAT_0, t1200_VAT_10, t1200_VAT_18, t1200_VAT_20, \
+            t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit = jsonItemsDisassembly(content['items'][i]) 
+            productRegistration(item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, sign_way_calc, item_mera, t1200_VAT_no, t1200_VAT_0, t1200_VAT_10, t1200_VAT_18, t1200_VAT_20, \
+            t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit, fptr) # регистрация каждого товара в чеке  
             i += 1
 
         if check_cash > 0:
@@ -236,17 +255,19 @@ def loadCheck():
             fptr.payment()
 
         fptr.closeReceipt()     # закрытие чека
-        CheckClosed = checkReceiptClosed(fptr)    # обработка результата операции
+        CheckClosed, fiscalSign, dateTime = checkReceiptClosed(fptr)    # обработка результата операции
         status = 0
         if CheckClosed:
             status = 1
         fptr.close()
 
+    elif connectStatus == 9:
+        status = 9
+        print("ИНН ККТ не соответствует ИНН организации!")   
     else:
         status = 2
         print("КАССА ЗАНЯТА!")
-
-    return str(status)
+    return str(status) + "=" + fiscalSign + "=" + str(dateTime)
 
 @app.route("/testKkt")
 def testKkt():
