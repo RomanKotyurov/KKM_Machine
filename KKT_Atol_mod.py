@@ -147,12 +147,20 @@ def jsonItemsDisassembly(item):
     t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit
 
 def productRegistration(item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, sign_way_calc, item_mera, t1200_VAT_no, t1200_VAT_0, t1200_VAT_10, t1200_VAT_18, \
-    t1200_VAT_20, t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit, fptr):  
+    t1200_VAT_20, t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit, sno, fptr):  
     fptr.setParam(IFptr.LIBFPTR_PARAM_COMMODITY_NAME, item_name)
     fptr.setParam(IFptr.LIBFPTR_PARAM_PRICE, item_price)
     fptr.setParam(IFptr.LIBFPTR_PARAM_QUANTITY, item_quantity)
-    fptr.setParam(IFptr.LIBFPTR_PARAM_MEASUREMENT_UNIT, IFptr.LIBFPTR_IU_PIECE) # единица измеренения - штука (ПОКА - ВСЕГДА, далее item_mera)
-    fptr.setParam(IFptr.LIBFPTR_PARAM_TAX_TYPE, IFptr.LIBFPTR_TAX_NO)  # НДС не облагается (ПОКА - ВСЕГДА)
+    if item_mera == 71:     # единица измеренения - час
+        fptr.setParam(IFptr.LIBFPTR_PARAM_MEASUREMENT_UNIT, IFptr.LIBFPTR_IU_HOUR)
+    else:                   # единица измеренения - штука
+        fptr.setParam(IFptr.LIBFPTR_PARAM_MEASUREMENT_UNIT, IFptr.LIBFPTR_IU_PIECE)
+
+    if sno == 1:
+        fptr.setParam(IFptr.LIBFPTR_PARAM_TAX_TYPE, IFptr.LIBFPTR_TAX_VAT20)    # для ПР НДС - 20% (ОСН)
+        fptr.setParam(IFptr.LIBFPTR_PARAM_USE_ONLY_TAX_TYPE, True)
+    else:
+        fptr.setParam(IFptr.LIBFPTR_PARAM_TAX_TYPE, IFptr.LIBFPTR_TAX_NO)  # для ПР - НДС не облагается (не ОСН)
 
     if (item_number != 1) and (item_sign_sub_calc == 10):
         sign_way_calc = 3
@@ -163,8 +171,7 @@ def productRegistration(item_number, item_name, item_sign_sub_calc, item_price, 
     return
 
 def checkReceiptClosed(fptr):
-    fiscalSign = ""
-    dateTime = ""
+    
     while fptr.checkDocumentClosed() < 0:   # не удалось проверить закрытие чека
         print(fptr.errorDescription())
         continue
@@ -199,26 +206,43 @@ def loadCheck():
     connectStatus, fptr = initializationKKT(ip_kassy, inn_company)   # инициализация и подключение ККТ  
     if connectStatus == 1:      # ККТ готова
 
+        fiscalSign = '0'
+        dateTime = '0'
+
         fptr.setParam(1021, operator) # кассир
         fptr.operatorLogin()
 
-        #fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL) # ПОТОМ УБРАТЬ!
-        #fptr.setParam(1062, sno)    # применяемая система налогообложения      # ОШИБКА ПРИ ИСПОЛЬЗОВАНИИ !!!
-        #fptr.setParam(1192, str(doc_osn))
-        fptr.setParam(1178, datetime.datetime(int(check_data[6:10]), int(check_data[3:5]), int(check_data[:2])))  # нужны, если по предписанию ФНС
-        fptr.setParam(1179, num_predpisania) # нужны, если по предписанию ФНС
-        fptr.utilFormTlv() # нужны, если по предписанию ФНС
-        #fptr.setParam(1192, str(doc_osn))
-        correctionInfo = fptr.getParamByteArray(IFptr.LIBFPTR_PARAM_TAG_VALUE)  # нужны, если по предписанию ФНС
-
-        if sign_calc == 1:
-            fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL_CORRECTION)   # КОРРЕКЦИЯ ПРИХОДА
-        if sign_calc == 2:
-            fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL_RETURN_CORRECTION)   # КОРРЕКЦИЯ ВОЗВРАТА ПРИХОДА
+        # Развилка: простой чек или чек коррекции?
+        if fd_type == 1: # кассовый чек
+            #fptr.setParam(1062, sno)    # применяемая система налогообложения      # ОШИБКА ПРИ ИСПОЛЬЗОВАНИИ !!!
+            if sign_calc == 1:
+                fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL)        # ПРИХОД
+            if sign_calc == 2:
+                fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL_RETURN) # ВОЗВРАТ ПРИХОДА
+            if sign_calc == 3:
+                fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_BUY )        # РАСХОД
              
-        fptr.setParam(1173, 0)  # тип коррекции - самостоятельно (по предписанию - 1)
-        fptr.setParam(1174, correctionInfo) # составной реквизит, состоит из "1178" и "1179"
-        fptr.setParam(1192, str(doc_osn))
+
+        if fd_type == 2: # чек коррекции
+            #fptr.setParam(1062, sno)    # применяемая система налогообложения      # ОШИБКА ПРИ ИСПОЛЬЗОВАНИИ !!!
+
+            fptr.setParam(1178, datetime.datetime(int(check_data[6:10]), int(check_data[3:5]), int(check_data[:2])))  # нужны, если по предписанию ФНС
+            fptr.setParam(1179, num_predpisania) # нужны, если по предписанию ФНС
+            fptr.utilFormTlv() # нужны, если по предписанию ФНС
+            correctionInfo = fptr.getParamByteArray(IFptr.LIBFPTR_PARAM_TAG_VALUE)  # нужны, если по предписанию ФНС
+
+            if sign_calc == 1:
+                fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL_CORRECTION)   # КОРРЕКЦИЯ ПРИХОДА
+            if sign_calc == 2:
+                fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_SELL_RETURN_CORRECTION)   # КОРРЕКЦИЯ ВОЗВРАТА ПРИХОДА
+            if sign_calc == 3:
+                fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, IFptr.LIBFPTR_RT_BUY_CORRECTION )        # КОРРЕКЦИЯ РАСХОДА
+             
+            fptr.setParam(1173, 0)  # тип коррекции - самостоятельно (по предписанию - 1)
+            fptr.setParam(1174, correctionInfo) # составной реквизит, состоит из "1178" и "1179"
+            fptr.setParam(1192, str(doc_osn))
+
+        # дальше - общее и для чека и для коррекции
         fptr.setParam(1008, clientInfo) # данные клиента (приходит пустая строка)
         if not check_print:
             fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_ELECTRONICALLY, True) # чек не печатаем
@@ -229,7 +253,7 @@ def loadCheck():
             item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, sign_way_calc, item_mera, t1200_VAT_no, t1200_VAT_0, t1200_VAT_10, t1200_VAT_18, t1200_VAT_20, \
             t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit = jsonItemsDisassembly(content['items'][i]) 
             productRegistration(item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, sign_way_calc, item_mera, t1200_VAT_no, t1200_VAT_0, t1200_VAT_10, t1200_VAT_18, t1200_VAT_20, \
-            t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit, fptr) # регистрация каждого товара в чеке  
+            t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit, sno, fptr) # регистрация каждого товара в чеке  
             i += 1
 
         if check_cash > 0:
@@ -254,6 +278,13 @@ def loadCheck():
             fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_SUM, check_prepay_offset)
             fptr.payment()
 
+        fptr.setParam(IFptr.LIBFPTR_PARAM_TAX_TYPE, IFptr.LIBFPTR_TAX_VAT20)
+        fptr.setParam(IFptr.LIBFPTR_PARAM_TAX_SUM, sum_20_VAT)
+        fptr.receiptTax()
+
+        fptr.setParam(IFptr.LIBFPTR_PARAM_SUM, check_sum)
+        fptr.receiptTotal()
+        
         fptr.closeReceipt()     # закрытие чека
         CheckClosed, fiscalSign, dateTime = checkReceiptClosed(fptr)    # обработка результата операции
         status = 0
@@ -263,9 +294,13 @@ def loadCheck():
 
     elif connectStatus == 9:
         status = 9
+        fiscalSign = ""
+        dateTime = ""
         print("ИНН ККТ не соответствует ИНН организации!")   
     else:
         status = 2
+        fiscalSign = ""
+        dateTime = ""
         print("КАССА ЗАНЯТА!")
     return str(status) + "=" + fiscalSign + "=" + str(dateTime)
 
