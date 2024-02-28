@@ -10,7 +10,7 @@ import datetime
 
 app = Flask(__name__)
 
-# version 24.01.19.1
+# version 24.02.28.1
 # ------------------
 #KASSA_IP ='192.0.0.154'
 #KASSA_IP = os.getenv('KASSA_IP')
@@ -25,9 +25,11 @@ def initializationKKT(ip_kassy, inn_company):
         # подключение ККТ
         settings = {
             IFptr.LIBFPTR_SETTING_MODEL: IFptr.LIBFPTR_MODEL_ATOL_AUTO,
-            IFptr.LIBFPTR_SETTING_PORT: IFptr.LIBFPTR_PORT_TCPIP,
-            IFptr.LIBFPTR_SETTING_IPADDRESS: ip_kassy, # 153, 154
-            IFptr.LIBFPTR_SETTING_IPPORT: 5555
+            # IFptr.LIBFPTR_SETTING_PORT: IFptr.LIBFPTR_PORT_USB, #\\\\\\\\\\\\ Для удаленного подключения
+            IFptr.LIBFPTR_SETTING_PORT: IFptr.LIBFPTR_PORT_TCPIP, #\\\\\\\\\\\\ Для подключения к кассе по TCP/IP
+            IFptr.LIBFPTR_SETTING_IPADDRESS: ip_kassy, #\\\\\\\\\\\\ Для подключения к кассе по TCP/IP
+            IFptr.LIBFPTR_SETTING_IPPORT: 5555 #\\\\\\\\\\\\ Для подключения к кассе по TCP/IP
+            # IFptr.LIBFPTR_SETTING_REMOTE_SERVER_ADDR: ip_kassy #\\\\\\\\\\\\ Для удаленного подключения
         }
         fptr.setSettings(settings)
         fptr.open()
