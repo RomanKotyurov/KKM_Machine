@@ -16,27 +16,36 @@ app = Flask(__name__)
 #KASSA_IP = os.getenv('KASSA_IP')
 
 
-def initializationKKT(ip_kassy, inn_company):
+def initializationKKT(connectType, ip_kassy, inn_company):
         # инициализация драйвера
         fptr = IFptr("")
-        #version = fptr.version()
-        #print('driver version:  ' + str(version))
    
         # подключение ККТ
-        settings = {
-            IFptr.LIBFPTR_SETTING_MODEL: IFptr.LIBFPTR_MODEL_ATOL_AUTO,
-            # IFptr.LIBFPTR_SETTING_PORT: IFptr.LIBFPTR_PORT_USB, #\\\\\\\\\\\\ Для удаленного подключения
-            IFptr.LIBFPTR_SETTING_PORT: IFptr.LIBFPTR_PORT_TCPIP, #\\\\\\\\\\\\ Для подключения к кассе по TCP/IP
-            IFptr.LIBFPTR_SETTING_IPADDRESS: ip_kassy, #\\\\\\\\\\\\ Для подключения к кассе по TCP/IP
-            IFptr.LIBFPTR_SETTING_IPPORT: 5555 #\\\\\\\\\\\\ Для подключения к кассе по TCP/IP
-            # IFptr.LIBFPTR_SETTING_REMOTE_SERVER_ADDR: ip_kassy #\\\\\\\\\\\\ Для удаленного подключения
-        }
+        if connectType == "TCP/IP":
+            settings = {
+                IFptr.LIBFPTR_SETTING_MODEL: IFptr.LIBFPTR_MODEL_ATOL_AUTO,
+                IFptr.LIBFPTR_SETTING_PORT: IFptr.LIBFPTR_PORT_TCPIP, #\\\\\\\\\\\\ Для подключения к кассе по TCP/IP
+                IFptr.LIBFPTR_SETTING_IPADDRESS: ip_kassy, #\\\\\\\\\\\\ Для подключения к кассе по TCP/IP
+                IFptr.LIBFPTR_SETTING_IPPORT: 5555 #\\\\\\\\\\\\ Для подключения к кассе по TCP/IP
+            }
+        if connectType == "Удаленный ПК":
+            settings = {
+                IFptr.LIBFPTR_SETTING_MODEL: IFptr.LIBFPTR_MODEL_ATOL_AUTO,
+                IFptr.LIBFPTR_SETTING_PORT: IFptr.LIBFPTR_PORT_USB, #\\\\\\\\\\\\ Для удаленного подключения к кассе через ПК
+                IFptr.LIBFPTR_SETTING_REMOTE_SERVER_ADDR: ip_kassy #\\\\\\\\\\\\ Для удаленного подключения к кассе через ПК
+            }
+        if connectType == "USB":
+            settings = {
+                IFptr.LIBFPTR_SETTING_MODEL: IFptr.LIBFPTR_MODEL_ATOL_AUTO,
+                IFptr.LIBFPTR_SETTING_PORT: IFptr.LIBFPTR_PORT_USB, #\\\\\\\\\\\\ Для подключения к кассе по USB
+            }
+
         fptr.setSettings(settings)
         fptr.open()
         isOpened = fptr.isOpened()
         fptr.setParam(IFptr.LIBFPTR_PARAM_FN_DATA_TYPE, IFptr.LIBFPTR_FNDT_REG_INFO)
         fptr.fnQueryData()
-        if inn_company != fptr.getParamString(1018).strip():
+        if isOpened==1 and inn_company != fptr.getParamString(1018).strip():
             isOpened = 9 # ИНН ККТ не соответсвует ИНН Организации (код ошибки - 9)
         print('Статус готовности к обмену с ККТ: '+ str(isOpened))    
         return isOpened, fptr
@@ -199,13 +208,40 @@ def root():
 def loadCheck():
     # Старт обработки тела чека
     content = request.json
-    botMessage = str(content)
-    #botMessage = "--> получен чек коррекции"
-    #bot.send_message(user_id, botMessage)
+    connectType = content['connect']
+
+    if content['operator'] == 'service-ping':
+        ip_kassy = content['ip_kassy']
+        inn_company = content['inn_сompany']
+        connectStatus, fptr = initializationKKT(connectType, ip_kassy, inn_company)   # инициализация и подключение ККТ
+        status = 2                  # по умолчанию - касса не готова !
+        fiscalSign = ""
+        dateTime = ""
+        if connectStatus == 1:      # касса готова
+            status = 1
+        if connectStatus == 9:      # ИНН не ИНН !
+            status = 9
+        return str(status) + "=" + fiscalSign + "=" + str(dateTime)
+    
+    if content['operator'] == 'service-X-report':
+        ip_kassy = content['ip_kassy']
+        inn_company = content['inn_сompany']
+        connectStatus, fptr = initializationKKT(connectType, ip_kassy, inn_company)   # инициализация и подключение ККТ
+        status = 2                  # по умолчанию - касса не готова !
+        fiscalSign = ""
+        dateTime = ""
+        if connectStatus == 1:      # касса готова
+            status = 1
+            fptr.setParam(IFptr.LIBFPTR_PARAM_REPORT_TYPE, IFptr.LIBFPTR_RT_X)
+            fptr.report()
+        if connectStatus == 9:      # ИНН не ИНН !
+            status = 9
+        return str(status) + "=" + fiscalSign + "=" + str(dateTime)
+
     ip_kassy, inn_company, operator, num_predpisania, clientInfo, rnm, fn, adress, fd_number, fd_type, corr_type, sign_calc, check_data, shift_number, check_sum, check_cash, check_electron, check_prepay, \
     check_prepay_offset, check_postpay, barter_pay, sum_NO_VAT, sum_0_VAT, sum_10_VAT, sum_18_VAT, sum_20_VAT, sum_110_VAT, sum_120_VAT, doc_osn, sno, inn_operator, check_print, itemsQuantity = jsonDisassembly(content)
     
-    connectStatus, fptr = initializationKKT(ip_kassy, inn_company)   # инициализация и подключение ККТ  
+    connectStatus, fptr = initializationKKT(connectType, ip_kassy, inn_company)   # инициализация и подключение ККТ  
     if connectStatus == 1:      # ККТ готова
 
         fiscalSign = '0'
