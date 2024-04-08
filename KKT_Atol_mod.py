@@ -10,7 +10,7 @@ import datetime
 
 app = Flask(__name__)
 
-# version 24.03.15.1
+# version 24.04.08.1
 # ------------------
 #KASSA_IP ='192.0.0.154'
 #KASSA_IP = os.getenv('KASSA_IP')
@@ -278,7 +278,8 @@ def loadCheck():
              
             fptr.setParam(1173, 0)  # тип коррекции - самостоятельно (по предписанию - 1)
             fptr.setParam(1174, correctionInfo) # составной реквизит, состоит из "1178" и "1179"
-            fptr.setParam(1192, str(doc_osn))
+            if doc_osn != 0:
+                fptr.setParam(1192, str(doc_osn))
 
         # дальше - общее и для чека и для коррекции
         fptr.setParam(1008, clientInfo) # данные клиента (приходит пустая строка)
