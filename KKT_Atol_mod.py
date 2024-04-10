@@ -241,7 +241,22 @@ def loadCheck():
     ip_kassy, inn_company, operator, num_predpisania, clientInfo, rnm, fn, adress, fd_number, fd_type, corr_type, sign_calc, check_data, shift_number, check_sum, check_cash, check_electron, check_prepay, \
     check_prepay_offset, check_postpay, barter_pay, sum_NO_VAT, sum_0_VAT, sum_10_VAT, sum_18_VAT, sum_20_VAT, sum_110_VAT, sum_120_VAT, doc_osn, sno, inn_operator, check_print, itemsQuantity = jsonDisassembly(content)
     
-    connectStatus, fptr = initializationKKT(connectType, ip_kassy, inn_company)   # инициализация и подключение ККТ  
+    connectStatus, fptr = initializationKKT(connectType, ip_kassy, inn_company)   # инициализация и подключение ККТ 
+
+    #################################### ЗАЩИТА ОТ НЕЛЕГАЛЬНОГО ИСПОЛЬЗОВАНИЯ ####################################
+    now = datetime.datetime.now()
+    date_expired = datetime.datetime(2024, 5, 1)
+    if now > date_expired:
+        connectStatus = 9
+    #################################### ЗАЩИТА ОТ НЕЛЕГАЛЬНОГО ИСПОЛЬЗОВАНИЯ ####################################
+
+
+
+
+
+
+
+
     if connectStatus == 1:      # ККТ готова
 
         fiscalSign = '0'
