@@ -1,6 +1,7 @@
 from flask import Flask, request #, jsonify
 from libfptr10 import IFptr
 import datetime
+import calendar
 #from threading import Thread
 #from pybase64 import b64decode
 #import os
@@ -159,9 +160,20 @@ def jsonItemsDisassembly(item):
 
 def productRegistration(item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, sign_way_calc, item_mera, t1200_VAT_no, t1200_VAT_0, t1200_VAT_10, t1200_VAT_18, \
     t1200_VAT_20, t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit, sno, fptr):  
+    
+    if sign_agent == 3:
+        fptr.setParam(1225, data_supplier)
+        fptr.utilFormTlv()
+        suplierInfo = fptr.getParamByteArray(IFptr.LIBFPTR_PARAM_TAG_VALUE)
+
+        fptr.setParam(1222, IFptr.LIBFPTR_AT_ANOTHER)
+        fptr.setParam(1226, str(inn_supplier))
+        fptr.setParam(1224, suplierInfo)
+    
     fptr.setParam(IFptr.LIBFPTR_PARAM_COMMODITY_NAME, item_name)
     fptr.setParam(IFptr.LIBFPTR_PARAM_PRICE, item_price)
     fptr.setParam(IFptr.LIBFPTR_PARAM_QUANTITY, item_quantity)
+    fptr.setParam(IFptr.LIBFPTR_PARAM_POSITION_SUM, item_sum)
     if item_mera == 71:     # единица измеренения - час
         fptr.setParam(IFptr.LIBFPTR_PARAM_MEASUREMENT_UNIT, IFptr.LIBFPTR_IU_HOUR)
     else:                   # единица измеренения - штука
@@ -173,11 +185,14 @@ def productRegistration(item_number, item_name, item_sign_sub_calc, item_price, 
     else:
         fptr.setParam(IFptr.LIBFPTR_PARAM_TAX_TYPE, IFptr.LIBFPTR_TAX_NO)  # для ПР - НДС не облагается (не ОСН)
 
-    if (item_number != 1) and (item_sign_sub_calc == 10):
-        sign_way_calc = 3
+    
 
-    fptr.setParam(1214, sign_way_calc)  # признак способа расчета: полный расчет (4), аванс (3)
+    # if (item_number != 1) and (item_sign_sub_calc == 10):   НЕПОНЯТНО, ПОЧЕМУ ТАК БЫЛО!!!
+        #     sign_way_calc = 3
+
+    fptr.setParam(1214, sign_way_calc)  # признак способа расчета: полный расчет (4), аванс (3), оплата кредита (7)
     fptr.setParam(1212, item_sign_sub_calc) # предмет расчета: товар (1), услуга (4), платеж (7)
+
     fptr.registration()
     return
 
@@ -245,17 +260,18 @@ def loadCheck():
 
     #################################### ЗАЩИТА ОТ НЕЛЕГАЛЬНОГО ИСПОЛЬЗОВАНИЯ ####################################
     now = datetime.datetime.now()
-    date_expired = datetime.datetime(2024, 5, 1)
+    current_year = now.year
+    next_month = now.month + 1
+    if next_month > 12:
+        next_month = 1
+        current_year += 1
+    last_day_of_next_month = calendar.monthrange(current_year, next_month)[1]
+    
+    # date_expired = datetime.datetime(2024, 8, 31)
+    date_expired = datetime.datetime(current_year, next_month, last_day_of_next_month)
     if now > date_expired:
         connectStatus = 9
     #################################### ЗАЩИТА ОТ НЕЛЕГАЛЬНОГО ИСПОЛЬЗОВАНИЯ ####################################
-
-
-
-
-
-
-
 
     if connectStatus == 1:      # ККТ готова
 
@@ -277,7 +293,6 @@ def loadCheck():
              
 
         if fd_type == 2: # чек коррекции
-            #fptr.setParam(1062, sno)    # применяемая система налогообложения      # ОШИБКА ПРИ ИСПОЛЬЗОВАНИИ !!!
 
             fptr.setParam(1178, datetime.datetime(int(check_data[6:10]), int(check_data[3:5]), int(check_data[:2])))  # нужны, если по предписанию ФНС
             fptr.setParam(1179, num_predpisania) # нужны, если по предписанию ФНС
@@ -297,6 +312,16 @@ def loadCheck():
                 fptr.setParam(1192, str(doc_osn))
 
         # дальше - общее и для чека и для коррекции
+        if sno != 0:    # СНО совпадает с СНО "по умолчанию"
+            if sno == 1:
+                fptr.setParam(1055, 1)  # система налогообложения - "ОСН"
+            if sno == 2:
+                fptr.setParam(1055, 2)  # система налогообложения - "УСН Д
+            if sno == 3:
+                fptr.setParam(1055, 3)  # система налогообложения - "УСН Д-Р"
+            if sno == 5:
+                fptr.setParam(1055, 5)  # система налогообложения - "Патент"
+
         fptr.setParam(1008, clientInfo) # данные клиента (приходит пустая строка)
         if not check_print:
             fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_ELECTRONICALLY, True) # чек не печатаем
@@ -319,8 +344,10 @@ def loadCheck():
             fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_SUM, check_electron)
             fptr.payment()
 
-        # if check_prepay > 0:
-        #    fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_PREPAID) # аванс
+        if check_prepay > 0:
+            fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_PREPAID) # аванс
+            fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_SUM, check_prepay)
+            fptr.payment()
             
         if check_postpay > 0:   
             fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, IFptr.LIBFPTR_PT_CREDIT) # кредит
