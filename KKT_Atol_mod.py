@@ -122,11 +122,12 @@ def jsonDisassembly(content):
     doc_osn = content['doc_osn']
     sno = content['sno']
     inn_operator = content['inn_operator']
+    buyer = content['buyer']
+    inn_buyer = content['inn_buyer']
     check_print = content['check_print']
     itemsQuantity = len(content['items'])
-    
     return ip_kassy, inn_company, operator, num_predpisania, clientInfo, rnm, fn, adress,fd_number, fd_type, corr_type, sign_calc, check_data, shift_number, check_sum, check_cash, check_electron, check_prepay, check_prepay_offset, \
-    check_postpay, barter_pay, sum_NO_VAT, sum_0_VAT, sum_10_VAT, sum_18_VAT, sum_20_VAT, sum_110_VAT, sum_120_VAT, doc_osn, sno, inn_operator, check_print, itemsQuantity
+    check_postpay, barter_pay, sum_NO_VAT, sum_0_VAT, sum_10_VAT, sum_18_VAT, sum_20_VAT, sum_110_VAT, sum_120_VAT, doc_osn, sno, inn_operator, buyer, inn_buyer, check_print, itemsQuantity
 
 def jsonItemsDisassembly(item):
     item_number = item['item_number']
@@ -254,7 +255,7 @@ def loadCheck():
         return str(status) + "=" + fiscalSign + "=" + str(dateTime)
 
     ip_kassy, inn_company, operator, num_predpisania, clientInfo, rnm, fn, adress, fd_number, fd_type, corr_type, sign_calc, check_data, shift_number, check_sum, check_cash, check_electron, check_prepay, \
-    check_prepay_offset, check_postpay, barter_pay, sum_NO_VAT, sum_0_VAT, sum_10_VAT, sum_18_VAT, sum_20_VAT, sum_110_VAT, sum_120_VAT, doc_osn, sno, inn_operator, check_print, itemsQuantity = jsonDisassembly(content)
+    check_prepay_offset, check_postpay, barter_pay, sum_NO_VAT, sum_0_VAT, sum_10_VAT, sum_18_VAT, sum_20_VAT, sum_110_VAT, sum_120_VAT, doc_osn, sno, inn_operator, buyer, inn_buyer, check_print, itemsQuantity = jsonDisassembly(content)
     
     connectStatus, fptr = initializationKKT(connectType, ip_kassy, inn_company)   # инициализация и подключение ККТ 
 
@@ -280,6 +281,12 @@ def loadCheck():
 
         fptr.setParam(1021, operator) # кассир
         fptr.operatorLogin()
+
+        if buyer != "":
+            fptr.setParam(1227, buyer)      # Покупатель
+            fptr.setParam(1228, inn_buyer)  # ИНН пркупателя
+            fptr.utilFormTlv()
+            Info = fptr.getParamByteArray(IFptr.LIBFPTR_PARAM_TAG_VALUE)
 
         # Развилка: простой чек или чек коррекции?
         if fd_type == 1: # кассовый чек
@@ -323,8 +330,12 @@ def loadCheck():
                 fptr.setParam(1055, 5)  # система налогообложения - "Патент"
 
         fptr.setParam(1008, clientInfo) # данные клиента (приходит пустая строка)
+
         if not check_print:
             fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_ELECTRONICALLY, True) # чек не печатаем
+
+        if buyer != "":
+            fptr.setParam(1256, Info)
         fptr.openReceipt()
 
         i = 0
