@@ -156,11 +156,12 @@ def jsonItemsDisassembly(item):
     data_supplier = item['data_supplier']
     inn_supplier = item['inn_supplier']
     dop_rekvizit = item['dop_rekvizit']
+    item_sno = item['item_sno']
     return item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, sign_way_calc, item_mera, t1200_VAT_no, t1200_VAT_0, t1200_VAT_10, t1200_VAT_18, t1200_VAT_20, \
-    t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit
+    t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit, item_sno
 
 def productRegistration(item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, sign_way_calc, item_mera, t1200_VAT_no, t1200_VAT_0, t1200_VAT_10, t1200_VAT_18, \
-    t1200_VAT_20, t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit, sno, fptr):  
+    t1200_VAT_20, t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit, item_sno, fptr):  
     
     if sign_agent == 3:
         fptr.setParam(1225, data_supplier)
@@ -180,7 +181,7 @@ def productRegistration(item_number, item_name, item_sign_sub_calc, item_price, 
     else:                   # единица измеренения - штука
         fptr.setParam(IFptr.LIBFPTR_PARAM_MEASUREMENT_UNIT, IFptr.LIBFPTR_IU_PIECE)
 
-    if sno == 1:
+    if item_sno == 1 and t1200_VAT_20 > 0:
         fptr.setParam(IFptr.LIBFPTR_PARAM_TAX_TYPE, IFptr.LIBFPTR_TAX_VAT20)    # для ПР НДС - 20% (ОСН)
         fptr.setParam(IFptr.LIBFPTR_PARAM_USE_ONLY_TAX_TYPE, True)
     else:
@@ -341,9 +342,9 @@ def loadCheck():
         i = 0
         while i < itemsQuantity:
             item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, sign_way_calc, item_mera, t1200_VAT_no, t1200_VAT_0, t1200_VAT_10, t1200_VAT_18, t1200_VAT_20, \
-            t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit = jsonItemsDisassembly(content['items'][i]) 
+            t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit, item_sno = jsonItemsDisassembly(content['items'][i]) 
             productRegistration(item_number, item_name, item_sign_sub_calc, item_price, item_quantity, item_sum, sign_way_calc, item_mera, t1200_VAT_no, t1200_VAT_0, t1200_VAT_10, t1200_VAT_18, t1200_VAT_20, \
-            t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit, sno, fptr) # регистрация каждого товара в чеке  
+            t1200_VAT_110, t1200_VAT_120, sign_agent, tel_OP, transaction_BPA, tel_PA, tel_OPP, name_OP, adress_OP, inn_OP, data_supplier, inn_supplier, dop_rekvizit, item_sno, fptr) # регистрация каждого товара в чеке  
             i += 1
 
         if check_cash > 0:
